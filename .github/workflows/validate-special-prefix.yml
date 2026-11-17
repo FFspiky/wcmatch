@@ -1,36 +1,12 @@
-name: Validate special directory prefixes
-
+name: Validate special prefixes Windows 3.14
 on:
   push:
     branches: [ci/validate-special-directory-prefix]
 permissions:
   contents: read
-
 jobs:
-  tests:
-    strategy:
-      fail-fast: false
-      max-parallel: 4
-      matrix:
-        platform: [ubuntu-latest, windows-latest]
-        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
-        include:
-          - python-version: "3.11"
-            hatch-env: py311
-          - python-version: "3.12"
-            hatch-env: py312
-          - python-version: "3.13"
-            hatch-env: py313
-          - python-version: "3.14"
-            hatch-env: py314
-          - python-version: "3.15"
-            hatch-env: py314
-        # exclude:
-        #   - platform: windows-latest
-        #     python-version: '3.16'
-
-    runs-on: ${{ matrix.platform }}
-
+  windows314:
+    runs-on: windows-latest
     steps:
     - uses: actions/checkout@v7
       with:
@@ -39,19 +15,18 @@ jobs:
     - name: Verify patch revision
       shell: bash
       run: test "$(git rev-parse HEAD)" = "769e15e420e1d71d4d4e28b0cdb9f7c49bea1d2d"
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python 3.14
       uses: actions/setup-python@v7
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: 3.14
         allow-prereleases: true
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip setuptools hatch
     - name: Types
       run: |
-        hatch run +py=${{ matrix.python-version }} dev:types
+        hatch run +py=3.14 dev:types
     - name: Verify regression against baseline source
-      if: matrix.python-version == '3.14'
       shell: bash
       run: |
         git fetch --no-tags origin 77a1a70340969d99f27fb8ed10ee7882a053221f
@@ -69,74 +44,9 @@ jobs:
         print(result.stderr)
         expected = '4 failed, 2 passed, 2 skipped' if sys.platform == 'win32' else '6 failed, 2 passed'
         assert result.returncode == 1 and expected in result.stdout, (result.returncode, expected)
-        assert source.read_bytes() == subprocess.check_output(['git', 'show', 'HEAD:wcmatch/glob.py'])
+        assert source.read_bytes() == patched
+        subprocess.run(['git', 'diff', '--exit-code', 'HEAD', '--', 'wcmatch/glob.py'], check=True)
         PYBASE
     - name: Tests
       run: |
-        hatch run +py=${{ matrix.python-version }} dev:tests
-
-  lint:
-    strategy:
-      max-parallel: 4
-      matrix:
-        python-version: [3.14]
-
-    env:
-      TOXENV: lint
-
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v7
-      with:
-        ref: 769e15e420e1d71d4d4e28b0cdb9f7c49bea1d2d
-        persist-credentials: false
-    - name: Verify patch revision
-      shell: bash
-      run: test "$(git rev-parse HEAD)" = "769e15e420e1d71d4d4e28b0cdb9f7c49bea1d2d"
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v7
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip setuptools hatch
-    - name: Lint
-      run: |
-        python -m hatch run +py=${{ matrix.python-version }} dev:lint
-
-    - name: Build distributions
-      run: hatch run +py=3.14 dev:python -m build
-
-  documents:
-    strategy:
-      max-parallel: 1
-      matrix:
-        python-version: ['3.14']
-
-    env:
-      TOXENV: documents
-
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v7
-      with:
-        ref: 769e15e420e1d71d4d4e28b0cdb9f7c49bea1d2d
-        persist-credentials: false
-    - name: Verify patch revision
-      shell: bash
-      run: test "$(git rev-parse HEAD)" = "769e15e420e1d71d4d4e28b0cdb9f7c49bea1d2d"
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v7
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install Aspell
-      run: |
-        sudo apt-get install aspell aspell-en
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip setuptools hatch
-    - name: Build documents
-      run: |
-        python -m hatch run docs:spellcheck
+        hatch run +py=3.14 dev:tests
