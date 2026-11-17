@@ -34,11 +34,11 @@ jobs:
     steps:
     - uses: actions/checkout@v7
       with:
-        ref: 61f8af00ee33a2ee6e3064daeb5fdd636ac37932
+        ref: 769e15e420e1d71d4d4e28b0cdb9f7c49bea1d2d
         persist-credentials: false
     - name: Verify patch revision
       shell: bash
-      run: test "$(git rev-parse HEAD)" = "61f8af00ee33a2ee6e3064daeb5fdd636ac37932"
+      run: test "$(git rev-parse HEAD)" = "769e15e420e1d71d4d4e28b0cdb9f7c49bea1d2d"
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v7
       with:
@@ -50,6 +50,27 @@ jobs:
     - name: Types
       run: |
         hatch run +py=${{ matrix.python-version }} dev:types
+    - name: Verify regression against baseline source
+      if: matrix.python-version == '3.14'
+      shell: bash
+      run: |
+        git fetch --no-tags origin 77a1a70340969d99f27fb8ed10ee7882a053221f
+        python - <<'PYBASE'
+        import pathlib, re, subprocess, sys
+        source = pathlib.Path('wcmatch/glob.py')
+        patched = source.read_bytes()
+        baseline = subprocess.check_output(['git', 'show', '77a1a70340969d99f27fb8ed10ee7882a053221f:wcmatch/glob.py'])
+        try:
+            source.write_bytes(baseline)
+            result = subprocess.run(['hatch', 'run', '+py=3.14', 'dev:pytest', 'tests/test_glob.py', '-q', '-k', 'literal_dot_prefix'], text=True, capture_output=True)
+        finally:
+            source.write_bytes(patched)
+        print(result.stdout)
+        print(result.stderr)
+        expected = '4 failed, 2 passed, 2 skipped' if sys.platform == 'win32' else '6 failed, 2 passed'
+        assert result.returncode == 1 and expected in result.stdout, (result.returncode, expected)
+        assert source.read_bytes() == subprocess.check_output(['git', 'show', 'HEAD:wcmatch/glob.py'])
+        PYBASE
     - name: Tests
       run: |
         hatch run +py=${{ matrix.python-version }} dev:tests
@@ -68,11 +89,11 @@ jobs:
     steps:
     - uses: actions/checkout@v7
       with:
-        ref: 61f8af00ee33a2ee6e3064daeb5fdd636ac37932
+        ref: 769e15e420e1d71d4d4e28b0cdb9f7c49bea1d2d
         persist-credentials: false
     - name: Verify patch revision
       shell: bash
-      run: test "$(git rev-parse HEAD)" = "61f8af00ee33a2ee6e3064daeb5fdd636ac37932"
+      run: test "$(git rev-parse HEAD)" = "769e15e420e1d71d4d4e28b0cdb9f7c49bea1d2d"
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v7
       with:
@@ -101,11 +122,11 @@ jobs:
     steps:
     - uses: actions/checkout@v7
       with:
-        ref: 61f8af00ee33a2ee6e3064daeb5fdd636ac37932
+        ref: 769e15e420e1d71d4d4e28b0cdb9f7c49bea1d2d
         persist-credentials: false
     - name: Verify patch revision
       shell: bash
-      run: test "$(git rev-parse HEAD)" = "61f8af00ee33a2ee6e3064daeb5fdd636ac37932"
+      run: test "$(git rev-parse HEAD)" = "769e15e420e1d71d4d4e28b0cdb9f7c49bea1d2d"
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v7
       with:
